@@ -4,13 +4,13 @@
 #include <RF24.h>
 #include <Servo.h>
 
-#define DEBUG 
+//#define DEBUG 
 
-#define FREQUENCY       0x6f
+#define FREQUENCY       0x5c
 #define PIPE            0xF0F0F0F0A1LL
 
 #define SERVO_SPUSK     0 
-#define SERVO_VSVOD     130
+#define SERVO_VSVOD     150
 #define SERVO_READY     53
 
 
@@ -20,9 +20,9 @@
 #define PIN_IN2 4
 #define PIN_IN3 8
 #define PIN_IN4 7
-#define PIN_SERVO 11
+#define PIN_SERVO 5
 
-#define SERVO_STEP_DURATION 15 // Длительность 1го цикла сервопривода (нужно для уствновления блокировки)
+#define SERVO_STEP_DURATION 10 // Длительность 1го цикла сервопривода (нужно для уствновления блокировки)
 
 
 #define PIN_CE  9  
@@ -70,12 +70,18 @@ void InitMototrs(){
     digitalWrite(PIN_IN4, LOW);
 }
 
+bool Shoot = true;
+bool ServoLocked = false;
+
 void MotorsCommand(const MotorsValues &data){
     analogWrite(PIN_ENA, data.P1);
     analogWrite(PIN_ENB, data.P2);
 
     digitalWrite(PIN_IN1, BoolToHL(data.D11));
     digitalWrite(PIN_IN2, BoolToHL(data.D12));
+    if (!ServoLocked){
+      Shoot = data.Shoot;
+    }
 
     digitalWrite(PIN_IN3, BoolToHL(data.D21));
     digitalWrite(PIN_IN4, BoolToHL(data.D22));
@@ -127,12 +133,10 @@ void setup() {
 
 MotorsValues motor;
 
-bool ServoLocked = false;
 long int LastShooted = 0;
 int Pos = 0;
 int targets[] = { SERVO_SPUSK, SERVO_VSVOD, SERVO_READY };
 int cycle = 0;
-bool Shoot = true;
 
 void ShooterCycle(long int time){
     if (ServoLocked){

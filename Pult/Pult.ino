@@ -1,12 +1,12 @@
-#include <Arduino.h>
+  // #include <Arduino.h>
 
 #include <nRF24L01.h> 
 #include <RF24.h>
 
+// Закоментировать если не надо видеть отладочные сообщения
 #define DEBUG 
-// #define TEST_RESULT
 
-#define CHANNEL 0x6f
+#define CHANNEL 0x7c
 #define PIPE 0xF0F0F0F0A1LL
 
 #define PIN_FAST 3
@@ -20,9 +20,7 @@
 #define PIN_CE  9  
 #define PIN_CSN 10 
 
-int sput(char c, __attribute__((unused)) FILE* f) {return !Serial.write(c);}
-
-typedef struct MotorsValues {
+struct MotorsValues {
   unsigned char P1;
   unsigned char P2;
 
@@ -32,16 +30,20 @@ typedef struct MotorsValues {
   bool D22;
 
   bool Shoot;
-} MotorsValues;
+};
 
-typedef struct CalcPResult {
-    unsigned char P;
+struct CalcPResult {
+    char P;
     bool D1;
     bool D2;
-} CalcPResult;
+};
+
+
+int sput(char c, __attribute__((unused)) FILE* f) {return !Serial.write(c);}
 
 #ifdef DEBUG 
 void PrintValues(MotorsValues v){ printf("-----\nP1: %u D11: %s D12: %s\nP2: %u D21: %s D22: %s Shoot: %s\n", v.P1, v.D11?"true":"false", v.D12?"true":"false", v.P2, v.D21?"true":"false", v.D22?"true":"false",  v.Shoot?"true":"false"); }
+
 #define DP(x) Serial.println(x)
 #define PV(v) PrintValues(v)
 #else 
@@ -78,16 +80,24 @@ CalcPResult CalcP(int p, bool d, int s, int f){
 }
 
 // PUB
-// p1 and p2 in range of 0...1023
+// p1 and p2 are in range of 0...1023
 MotorsValues Calculate(int p1, int p2, bool fire, bool dir, bool slow, bool fast) {
     MotorsValues r = {0};
     r.Shoot = fire;
 
     int s = 0;
-    int f = slow ? 70 : (fast ? 255 : 128);
-
-    CalcPResult p1r = CalcP(p1, dir, s, f);
-    CalcPResult p2r = CalcP(p2, dir, s, f);
+    int f = slow ? 90 : (fast ? 255 : 128);
+    
+    CalcPResult p1r;
+    CalcPResult p2r;
+    if (dir){
+      p1r = CalcP(p1, dir, s, f);
+      p2r = CalcP(p2, dir, s, f);
+    }
+    else {
+      p1r = CalcP(p2, dir, s, f);
+      p2r = CalcP(p1, dir, s, f);
+    }
 
     r.D11 = p1r.D1;
     r.D12 = p1r.D2;
@@ -99,45 +109,6 @@ MotorsValues Calculate(int p1, int p2, bool fire, bool dir, bool slow, bool fast
     r.P2 = p2r.P;
 
     return r;
-}
-
-
-void TestCalc(void){
-    if (!Serial){
-        Serial.begin(9600);
-    }
-
-    PrintValues(Calculate(512, 1024, true, true, false, false));
-    PrintValues(Calculate(512, 1024, true, true, true, false));
-    PrintValues(Calculate(512, 1024, true, true, false, true));
-
-    PrintValues(Calculate(512, 1024, false, false, false, false));
-    PrintValues(Calculate(512, 1024, false, false, true, false));
-    PrintValues(Calculate(512, 1024, false, false, false, true));
-
-    PrintValues(Calculate(0, 512, true, true, false, false));
-    PrintValues(Calculate(0, 512, true, true, true, false));
-    PrintValues(Calculate(0, 512, true, true, false, true));
-
-    PrintValues(Calculate(512, 512, false, false, false, false));
-    PrintValues(Calculate(512, 512, false, false, true, false));
-    PrintValues(Calculate(512, 512, false, false, false, true));
-
-    PrintValues(Calculate(1024, 1024, true, true, false, false));
-    PrintValues(Calculate(1024, 1024, true, true, true, false));
-    PrintValues(Calculate(1024, 1024, true, true, false, true));
-
-    PrintValues(Calculate(1024, 1024, false, false, false, false));
-    PrintValues(Calculate(1024, 1024, false, false, true, false));
-    PrintValues(Calculate(1024, 1024, false, false, false, true));
-
-    PrintValues(Calculate(0, 0, true, true, false, false));
-    PrintValues(Calculate(0, 0, true, true, true, false));
-    PrintValues(Calculate(0, 0, true, true, false, true));
-
-    PrintValues(Calculate(0, 0, false, false, false, false));
-    PrintValues(Calculate(0, 0, false, false, true, false));
-    PrintValues(Calculate(0, 0, false, false, false, true));
 }
 
 FILE f_out;
@@ -179,10 +150,6 @@ void setup(){
 
     fdev_setup_stream(&f_out, sput, nullptr, _FDEV_SETUP_WRITE); 
     stdout = &f_out;
-    DP("Test results:");
-    #ifdef TEST_RESULT
-        TestCalc();
-    #endif
 
     pinMode(PIN_FAST, INPUT_PULLUP);
     pinMode(PIN_SLOW, INPUT_PULLUP);
